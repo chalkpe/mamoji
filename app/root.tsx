@@ -1,26 +1,16 @@
-import {
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react'
+import type { LinksFunction } from '@remix-run/node'
 
-import "./tailwind.css";
+import './tailwind.css'
+import { SidebarProvider, SidebarTrigger } from './components/ui/sidebar'
+import AppSidebar from './components/app-sidebar'
 
 export const links: LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
+    rel: 'stylesheet',
+    href: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css',
   },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
-];
+]
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -32,14 +22,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
+        <SidebarProvider>
+          <AppSidebar />
+          <main className="w-full">
+            <header className="p-5 border-b sticky w-full z-50 top-0 bg-background">
+              <SidebarTrigger />
+            </header>
+            <div className="w-full p-5 flex flex-col gap-2">{children}</div>
+          </main>
+        </SidebarProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
     </html>
-  );
+  )
 }
 
 export default function App() {
-  return <Outlet />;
+  return <Outlet />
 }
