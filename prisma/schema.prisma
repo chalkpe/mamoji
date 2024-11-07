@@ -1,0 +1,36 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Server {
+  url    String  @id
+  name   String
+  emojis Emoji[]
+}
+
+model User {
+  handle    String  @id
+  name      String
+  avatarUrl String
+  emojis    Emoji[]
+}
+
+model Emoji {
+  shortcode String
+  url       String
+  category  String?
+  tags      String[]
+
+  serverUrl String
+  server    Server @relation(fields: [serverUrl], references: [url])
+
+  authorHandle String?
+  author       User?   @relation(fields: [authorHandle], references: [handle])
+
+  @@unique([serverUrl, shortcode])
+}

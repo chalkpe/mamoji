@@ -16,19 +16,24 @@ export async function isMastodon(server: string) {
     }
 
     const realNodeinfo = await fetch(href).then((res) => res.json())
-    const software = realNodeinfo?.software?.name
 
+    const software = realNodeinfo?.software?.name
     if (software !== 'mastodon') {
       return { error: `마스토돈 서버가 아닙니다. (${software})` }
     }
 
-    return { error: undefined }
+    const name = realNodeinfo?.metadata?.nodeName
+    if (typeof name !== 'string') {
+      return { error: '서버 이름을 확인할 수 없습니다.' }
+    }
+
+    return { error: undefined, name }
   } catch (error) {
     return { error: '서버에 연결할 수 없습니다.' }
   }
 }
 
-export type Emoji = {
+type Emoji = {
   shortcode: string
   url: string
   category?: string

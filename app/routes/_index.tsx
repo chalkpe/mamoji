@@ -4,6 +4,7 @@ import { AlertCircle, Loader2, LogIn } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { prisma } from '~/db.server'
 import { isMastodon } from '~/lib/mastodon'
 
 export const meta: MetaFunction = () => {
@@ -49,6 +50,16 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: '서버 주소를 입력해주세요.' }, { status: 400 })
   }
 
-  const { error } = await isMastodon(url)
-  return error ? json({ error }, { status: 400 }) : redirect(`/servers/${url}`)
+  const { error, name } = await isMastodon(url)
+  if (error || !name) {
+    return json({ error }, { status: 400 })
+  }
+    
+  await prisma.server.upsert({
+    where: { url },
+    create: { url, name },
+    update: { name },
+  })
+    
+  return redirect(`/servers/${url}`)
 }

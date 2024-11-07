@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '~/components/ui/drawer'
-import { Emoji, getEmoji, isMastodon } from '~/lib/mastodon'
+import { prisma } from '~/db.server'
+import { getEmoji, isMastodon } from '~/lib/mastodon'
 import { cn } from '~/lib/utils'
 import { serversAtom } from '~/store/servers'
 
@@ -13,23 +14,45 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
   const server = params.server
   if (!server) throw json('Parameter not found', { status: 400 })
 
-  const { error } = await isMastodon(server)
-  if (error) throw json(error, { status: 400 })
+  const { error, name } = await isMastodon(server)
+  if (error || !name) throw json(error, { status: 400 })
 
-  return json({ server, emojis: await getEmoji(server) })
+  await prisma.server.upsert({
+    where: { url: server },
+    create: { url: server, name },
+    update: { name },
+  })
+
+  const res = await getEmoji(server)
+  const emojis = await Promise.all(
+    res.map(({ shortcode, url, category }) =>
+      prisma.emoji.upsert({
+        where: { serverUrl_shortcode: { serverUrl: server, shortcode } },
+        create: { server: { connect: { url: server } }, shortcode, url, category },
+        update: { url, category },
+      }),
+    ),
+  )
+
+  return json({ server, emojis })
 }
 
 export default function Server() {
   const { server, emojis } = useLoaderData<typeof loader>()
   const categories = useMemo(
-    () => [...new Set(emojis.map((emoji) => emoji.category))].sort((a, b) => (a && b ? b.localeCompare(a) : 0)).reverse(),
+    () =>
+      [...new Set(emojis.map((emoji) => emoji.category))].sort((a, b) => {
+        if (a === null) return -1
+        if (b === null) return 1
+        return a.localeCompare(b)
+      }),
     [emojis],
   )
 
   const setServers = useSetAtom(serversAtom)
   useEffect(() => setServers((prev) => [...new Set([server, ...prev])].sort((a, b) => a.localeCompare(b))), [server, setServers])
 
-  const [selectedEmoji, setSelectedEmoji] = useState<Emoji>()
+  const [selectedEmoji, setSelectedEmoji] = useState<(typeof emojis)[number]>()
 
   return (
     <>
