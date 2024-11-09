@@ -25,6 +25,7 @@ model Emoji {
   url       String
   category  String?
   tags      String[]
+  copyable  Boolean  @default(true)
 
   serverUrl String
   server    Server @relation(fields: [serverUrl], references: [url])

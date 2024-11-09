@@ -21,14 +21,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="h-screen">
         <SidebarProvider>
           <AppSidebar />
-          <main className="w-full">
-            <header className="p-5 border-b sticky w-full z-50 top-0 bg-background">
+          <main className="w-full max-h-screen">
+            <header className="p-5 border-b fixed w-full z-50 top-0 bg-background">
               <SidebarTrigger />
             </header>
-            <div className="w-full p-5 flex flex-col gap-2">{children}</div>
+            <div className="w-full h-screen max-h-screen p-5 lg:pb-0 flex flex-col lg:flex-row gap-5 pt-[calc(70px+1.25rem)]">{children}</div>
           </main>
         </SidebarProvider>
         <ScrollRestoration />
