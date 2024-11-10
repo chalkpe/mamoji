@@ -1,10 +1,10 @@
-import { Emoji } from '@prisma/client'
-import { json, LoaderFunctionArgs } from '@remix-run/node'
-import { Form, isRouteErrorResponse, useLoaderData, useRouteError } from '@remix-run/react'
+import { ActionFunctionArgs, json, LoaderFunctionArgs } from '@remix-run/node'
+import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useNavigation } from '@remix-run/react'
 import { useSetAtom } from 'jotai'
 import { Check } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useMemo } from 'react'
+import { useRemixForm, getValidatedFormData } from 'remix-hook-form'
+import { useFieldArray } from 'react-hook-form'
 import { AppEmoji } from '~/components/app-emoji'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
@@ -46,8 +46,18 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
   return json({ server, emojis })
 }
 
+const formSchema = z.object({
+  emojis: z.array(z.object({ serverUrl: z.string(), shortcode: z.string() })).nonempty({ message: '이모지를 선택하세요.' }),
+  author: z.union([z.literal(''), z.string().email({ message: '올바른 핸들을 입력하세요.' })]),
+  copyable: z.boolean(),
+})
+
+const resolver = zodResolver(formSchema)
+
 export default function Server() {
+  const navigation = useNavigation()
   const { server, emojis } = useLoaderData<typeof loader>()
+
   const emojiEntries: [(typeof emojis)[number]['category'], typeof emojis][] = useMemo(
     () =>
       [...new Set(emojis.map((emoji) => emoji.category))]
@@ -59,27 +69,20 @@ export default function Server() {
     [emojis],
   )
 
+  const form = useRemixForm<z.infer<typeof formSchema>>({
+    resolver,
+    defaultValues: { emojis: [], author: '', copyable: true },
+  })
+
+  const { fields, append, replace } = useFieldArray({ control: form.control, name: 'emojis' })
+
+  useEffect(() => {
+    const mine = fields.filter((f) => f.serverUrl === server)
+    if (fields.length !== mine.length) replace(mine)
+  }, [fields, replace, server])
+
   const setServers = useSetAtom(serversAtom)
   useEffect(() => setServers((prev) => [...new Set([server, ...prev])].sort((a, b) => a.localeCompare(b))), [server, setServers])
-
-  const [selectedEmojis, setSelectedEmojis] = useState<Set<Emoji>>(new Set())
-  useEffect(() => {
-    if (server) setSelectedEmojis(new Set())
-  }, [server])
-
-  const formSchema = z.object({
-    author: z.union([z.literal(''), z.string().email({ message: '올바른 핸들을 입력하세요.' })]),
-    copyable: z.boolean(),
-  })
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { author: '', copyable: true },
-  })
-
-  const onSubmit = useCallback((values: z.infer<typeof formSchema>) => {
-    console.log(values)
-  }, [])
 
   return (
     <>
@@ -92,20 +95,27 @@ export default function Server() {
             </CardHeader>
             <CardContent className="flex flex-wrap">
               {list.map((emoji) => (
-                <AppEmoji key={emoji.shortcode} emoji={emoji} onClick={() => setSelectedEmojis(new Set(selectedEmojis.add(emoji)))} />
+                <AppEmoji
+                  key={emoji.shortcode}
+                  emoji={emoji}
+                  onClick={() => !fields.find((f) => f.shortcode === emoji.shortcode) && append(emoji)}
+                />
               ))}
             </CardContent>
             <CardFooter>
-              {list.every((emoji) => selectedEmojis.has(emoji)) ? (
+              {list.every((emoji) => fields.find((f) => f.shortcode === emoji.shortcode)) ? (
                 <Button
                   className="w-full"
                   variant="outline"
-                  onClick={() => setSelectedEmojis(new Set([...selectedEmojis].filter((emoji) => !list.includes(emoji))))}
+                  onClick={() => replace(fields.filter((f) => !list.find((emoji) => f.shortcode === emoji.shortcode)))}
                 >
                   <Check /> 전부 해제
                 </Button>
               ) : (
-                <Button className="w-full" onClick={() => setSelectedEmojis(new Set([...selectedEmojis, ...list]))}>
+                <Button
+                  className="w-full"
+                  onClick={() => append(list.filter((emoji) => !fields.find((f) => f.shortcode === emoji.shortcode)))}
+                >
                   <Check /> 전부 선택
                 </Button>
               )}
@@ -116,30 +126,20 @@ export default function Server() {
       <Card className="w-[21rem] flex-shrink-0 lg:mb-5">
         <CardHeader>
           <CardTitle>이모지 편집</CardTitle>
-          <CardDescription>{selectedEmojis.size}개의 이모지</CardDescription>
+          <CardDescription>{fields.length}개의 이모지</CardDescription>
         </CardHeader>
         <UiForm {...form}>
-          <Form
-            name="form"
-            onSubmit={form.handleSubmit(onSubmit)}
-            onReset={() => {
-              form.reset()
-              setSelectedEmojis(new Set())
-            }}
-          >
+          <Form method="post" onSubmit={form.handleSubmit} onReset={() => form.reset()} reloadDocument>
             <CardContent className="flex flex-col gap-5">
-              {selectedEmojis.size > 0 && (
+              {fields.length > 0 && (
                 <div className="max-h-[12rem] overflow-scroll">
-                  {[...selectedEmojis].map((emoji) => (
-                    <AppEmoji
-                      key={emoji.shortcode}
-                      emoji={emoji}
-                      onClick={() => {
-                        selectedEmojis.delete(emoji)
-                        setSelectedEmojis(new Set(selectedEmojis))
-                      }}
-                    />
-                  ))}
+                  {fields.flatMap(({ shortcode }) => {
+                    const emoji = emojis.find((e) => e.shortcode === shortcode)
+                    if (!emoji) return []
+                    return [
+                      <AppEmoji key={shortcode} emoji={emoji} onClick={() => replace(fields.filter((f) => f.shortcode !== shortcode))} />,
+                    ]
+                  })}
                 </div>
               )}
               <FormField
@@ -176,7 +176,9 @@ export default function Server() {
               <Button variant="outline" type="reset">
                 취소
               </Button>
-              <Button type="submit">저장</Button>
+              <Button type="submit" disabled={navigation.state !== 'idle'}>
+                저장
+              </Button>
             </CardFooter>
           </Form>
         </UiForm>
@@ -198,4 +200,34 @@ export function ErrorBoundary() {
   } else {
     return <h1>Unknown Error</h1>
   }
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const { errors, data } = await getValidatedFormData<z.infer<typeof formSchema>>(request, resolver)
+
+  if (errors) {
+    return json({ errors })
+  }
+
+  const { emojis, author, copyable } = data
+
+  if (author !== '') {
+    // TODO: fetch user data, upsert user table
+  }
+
+  await Promise.all(
+    emojis.map(({ serverUrl, shortcode }) =>
+      author !== ''
+        ? prisma.emoji.update({
+            where: { serverUrl_shortcode: { serverUrl, shortcode } },
+            data: { copyable, authorHandle: author },
+          })
+        : prisma.emoji.update({
+            where: { serverUrl_shortcode: { serverUrl, shortcode } },
+            data: { copyable },
+          }),
+    ),
+  )
+
+  return json({ errors: null })
 }
