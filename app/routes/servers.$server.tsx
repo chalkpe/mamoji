@@ -93,7 +93,7 @@ export default function Server() {
               <CardTitle>{category ?? '커스텀'}</CardTitle>
               <CardDescription>{list.length}개의 이모지</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap">
+            <CardContent className="flex flex-wrap gap-2">
               {list.map((emoji) => (
                 <AppEmoji
                   key={emoji.shortcode}
@@ -123,7 +123,7 @@ export default function Server() {
           </Card>
         ))}
       </section>
-      <Card className="w-[22rem] flex-shrink-0 lg:mb-5">
+      <Card className="w-[23rem] flex-shrink-0 lg:mb-5">
         <CardHeader>
           <CardTitle>이모지 편집</CardTitle>
           <CardDescription>이모지의 메타데이터를 편집합니다.</CardDescription>
@@ -139,7 +139,7 @@ export default function Server() {
                     <FormLabel>선택된 이모지</FormLabel>
                     <FormControl>
                       {fields.length > 0 && (
-                        <div className="max-h-[12rem] overflow-y-scroll">
+                        <div className="max-h-[12rem] overflow-y-scroll flex flex-row flex-wrap gap-2">
                           {fields.flatMap(({ shortcode }) => {
                             const emoji = emojis.find((e) => e.shortcode === shortcode)
                             if (!emoji) return []
