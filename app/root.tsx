@@ -1,4 +1,5 @@
-import { Links, Meta, NavLink, Outlet, Scripts, ScrollRestoration } from '@remix-run/react'
+import React from 'react'
+import { Links, Meta, NavLink, Outlet, Scripts, ScrollRestoration, useMatches } from '@remix-run/react'
 import type { LinksFunction } from '@remix-run/node'
 
 import './tailwind.css'
@@ -15,6 +16,8 @@ export const links: LinksFunction = () => [
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const matches = useMatches() as { handle?: { breadcrumb: string } }[]
+
   return (
     <html lang="en">
       <head>
@@ -32,13 +35,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Separator orientation="vertical" className="mr-2 h-4" />
               <Breadcrumb>
                 <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <NavLink to="/">{() => <BreadcrumbLink>마모지</BreadcrumbLink>}</NavLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>TODO</BreadcrumbPage>
-                  </BreadcrumbItem>
+                  {matches
+                    .filter((match) => match.handle?.breadcrumb)
+                    .map((match, index, array) => {
+                      const key = match.handle?.breadcrumb
+                      const isLast = index === array.length - 1
+                      return (
+                        <React.Fragment key={key}>
+                          <BreadcrumbItem className={isLast ? '' : 'hidden md:block'}>
+                            <NavLink to="/">
+                              {() => (isLast ? <BreadcrumbPage>{key}</BreadcrumbPage> : <BreadcrumbLink>{key}</BreadcrumbLink>)}
+                            </NavLink>
+                          </BreadcrumbItem>
+                          {!isLast && <BreadcrumbSeparator className="hidden md:block" />}
+                        </React.Fragment>
+                      )
+                    })}
                 </BreadcrumbList>
               </Breadcrumb>
             </header>
@@ -56,4 +68,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return <Outlet />
+}
+
+export const handle = {
+  breadcrumb: '마모지',
 }

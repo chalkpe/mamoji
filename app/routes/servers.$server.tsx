@@ -248,3 +248,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   return json({ errors: null })
 }
+
+export const handle = {
+  breadcrumb: '서버 관리',
+}
