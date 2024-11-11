@@ -86,7 +86,7 @@ export default function Server() {
 
   return (
     <>
-      <section className="flex-auto overflow-scroll flex flex-col gap-5 lg:pb-5">
+      <section className="flex-auto overflow-y-scroll flex flex-col gap-5 lg:pb-5">
         {emojiEntries.map(([category, list]) => (
           <Card key={category ?? 'undefined'}>
             <CardHeader>
@@ -123,25 +123,42 @@ export default function Server() {
           </Card>
         ))}
       </section>
-      <Card className="w-[21rem] flex-shrink-0 lg:mb-5">
+      <Card className="w-[22rem] flex-shrink-0 lg:mb-5">
         <CardHeader>
           <CardTitle>이모지 편집</CardTitle>
-          <CardDescription>{fields.length}개의 이모지</CardDescription>
+          <CardDescription>이모지의 메타데이터를 편집합니다.</CardDescription>
         </CardHeader>
         <UiForm {...form}>
           <Form method="post" onSubmit={form.handleSubmit} onReset={() => form.reset()} reloadDocument>
             <CardContent className="flex flex-col gap-5">
-              {fields.length > 0 && (
-                <div className="max-h-[12rem] overflow-scroll">
-                  {fields.flatMap(({ shortcode }) => {
-                    const emoji = emojis.find((e) => e.shortcode === shortcode)
-                    if (!emoji) return []
-                    return [
-                      <AppEmoji key={shortcode} emoji={emoji} onClick={() => replace(fields.filter((f) => f.shortcode !== shortcode))} />,
-                    ]
-                  })}
-                </div>
-              )}
+              <FormField
+                control={form.control}
+                name="emojis"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>선택된 이모지</FormLabel>
+                    <FormControl>
+                      {fields.length > 0 && (
+                        <div className="max-h-[12rem] overflow-y-scroll">
+                          {fields.flatMap(({ shortcode }) => {
+                            const emoji = emojis.find((e) => e.shortcode === shortcode)
+                            if (!emoji) return []
+                            return [
+                              <AppEmoji
+                                key={shortcode}
+                                emoji={emoji}
+                                onClick={() => replace(fields.filter((f) => f.shortcode !== shortcode))}
+                              />,
+                            ]
+                          })}
+                        </div>
+                      )}
+                    </FormControl>
+                    <FormDescription>{fields.length}개의 이모지</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="author"
