@@ -1,6 +1,6 @@
 import { json, ActionFunctionArgs } from '@remix-run/node'
-import { useLoaderData, Form, redirect, useActionData, useNavigation, NavLink } from '@remix-run/react'
-import { AlertCircle, Globe, Loader2, LogIn } from 'lucide-react'
+import { useLoaderData, Form, redirect, useActionData, useNavigation, NavLink, Link } from '@remix-run/react'
+import { AlertCircle, Braces, Globe, Loader2, LogIn } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
@@ -65,6 +65,11 @@ export default function Servers() {
               </CardDescription>
             </CardHeader>
             <CardFooter className="flex flex-row w-full justify-end gap-2">
+              <Link to={`/api/${server.url}`} reloadDocument>
+                <Button variant="outline">
+                  <Braces /> API
+                </Button>
+              </Link>
               <a href={`https://${server.url}`} target="_blank" rel="noreferrer">
                 <Button variant="outline">
                   <Globe /> 접속하기
