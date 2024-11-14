@@ -91,3 +91,9 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}

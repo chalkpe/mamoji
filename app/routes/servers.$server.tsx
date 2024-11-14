@@ -1,6 +1,5 @@
 import { ActionFunctionArgs, json, LoaderFunctionArgs } from '@remix-run/node'
 import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useNavigation } from '@remix-run/react'
-import { useSetAtom } from 'jotai'
 import { Check } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { useRemixForm, getValidatedFormData } from 'remix-hook-form'
@@ -13,7 +12,6 @@ import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessa
 import { prisma } from '~/db.server'
 import { getEmoji, isMastodon } from '~/lib/mastodon'
 import { nullsFirst } from '~/lib/utils'
-import { serversAtom } from '~/store/servers'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '~/components/ui/input'
@@ -80,9 +78,6 @@ export default function Server() {
     const mine = fields.filter((f) => f.serverUrl === server)
     if (fields.length !== mine.length) replace(mine)
   }, [fields, replace, server])
-
-  const setServers = useSetAtom(serversAtom)
-  useEffect(() => setServers((prev) => [...new Set([server, ...prev])].sort((a, b) => a.localeCompare(b))), [server, setServers])
 
   return (
     <>

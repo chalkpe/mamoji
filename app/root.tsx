@@ -36,15 +36,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Breadcrumb>
                 <BreadcrumbList>
                   {matches
-                    .filter((match) => match.handle?.breadcrumb)
-                    .map((match, index, array) => {
-                      const key = match.handle?.breadcrumb
+                    .flatMap((match) => (match.handle?.breadcrumb ? [match.handle.breadcrumb] : []))
+                    .map((breadcrumb, index, array) => {
                       const isLast = index === array.length - 1
                       return (
-                        <React.Fragment key={key}>
+                        <React.Fragment key={breadcrumb}>
                           <BreadcrumbItem className={isLast ? '' : 'hidden md:block'}>
                             <NavLink to="/">
-                              {() => (isLast ? <BreadcrumbPage>{key}</BreadcrumbPage> : <BreadcrumbLink>{key}</BreadcrumbLink>)}
+                              {() =>
+                                isLast ? (
+                                  <BreadcrumbPage>{breadcrumb}</BreadcrumbPage>
+                                ) : (
+                                  <BreadcrumbLink asChild>
+                                    <span>{breadcrumb}</span>
+                                  </BreadcrumbLink>
+                                )
+                              }
                             </NavLink>
                           </BreadcrumbItem>
                           {!isLast && <BreadcrumbSeparator className="hidden md:block" />}
