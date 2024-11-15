@@ -178,7 +178,7 @@ export default function Server() {
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel>타 서버로의 복사 허용</FormLabel>
-                      <FormDescription>2차 창작 이모지의 경우 해제하세요.</FormDescription>
+                      <FormDescription>1차 창작 이모지의 경우 해제하세요.</FormDescription>
                     </div>
                   </FormItem>
                 )}
