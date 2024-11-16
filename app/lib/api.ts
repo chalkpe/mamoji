@@ -68,9 +68,26 @@ const mastodonEmojisSchema = z.array(
   }),
 )
 
-export async function upsertEmojis(serverUrl: string, serverSoftware: ServerSoftware) {
+export async function upsertEmojis(serverUrl: string) {
+  const { error, data } = await fetchServerType(serverUrl)
+  if (error || !data) throw json(error, { status: 400 })
+
+  const server = await prisma.server.upsert({
+    where: { url: serverUrl },
+    create: { url: serverUrl, name: data.name, software: data.software },
+    update: { name: data.name, software: data.software },
+  })
+
+
+  if ((Date.now() - server.emojiUpdatedAt.getTime()) < 1000 * 60 * 60 * 24) {
+    return await prisma.emoji.findMany({
+      where: { serverUrl },
+      orderBy: { shortcode: 'asc' },
+    })
+  }
+
   try {
-    switch (serverSoftware) {
+    switch (data.software) {
       case ServerSoftware.MASTODON:
         return upsertMastodonEmojis(serverUrl)
       case ServerSoftware.MISSKEY:
@@ -81,36 +98,37 @@ export async function upsertEmojis(serverUrl: string, serverSoftware: ServerSoft
   }
 }
 
-export async function findEmojis(serverUrl: string) {
-  return await prisma.emoji.findMany({
-    where: { serverUrl },
-    orderBy: { shortcode: 'asc' },
-  })
-}
-
 async function upsertMastodonEmojis(serverUrl: string) {
   const res = await fetch(`https://${serverUrl}${mastodonEndpoint}`).then((res) => res.json())
   const data = mastodonEmojisSchema.parse(res)
 
-  return await Promise.all(
-    data.map(({ shortcode, url, category }) =>
-      prisma.emoji.upsert({
-        where: {
-          serverUrl_shortcode: { serverUrl, shortcode },
-        },
-        create: {
-          server: { connect: { url: serverUrl } },
-          shortcode,
-          url,
-          category,
-        },
-        update: {
-          url,
-          category,
-        },
-      }),
-    ),
-  )
+  for (const { shortcode, url, category } of data) {
+    await prisma.emoji.upsert({
+      where: {
+        serverUrl_shortcode: { serverUrl, shortcode },
+      },
+      create: {
+        server: { connect: { url: serverUrl } },
+        shortcode,
+        url,
+        category,
+      },
+      update: {
+        url,
+        category,
+      },
+    })
+  }
+
+  await prisma.server.update({
+    where: { url: serverUrl },
+    data: { emojiUpdatedAt: new Date() },
+  })
+
+  return await prisma.emoji.findMany({
+    where: { serverUrl },
+    orderBy: { shortcode: 'asc' },
+  })
 }
 
 const misskeyEndpoint = '/api/emojis'
@@ -143,27 +161,35 @@ async function upsertMisskeyEmojis(serverUrl: string) {
     )
   }
 
-  return await Promise.all(
-    data.emojis.map(({ name: shortcode, url, category, aliases: tags, isSensitive: sensitive }) =>
-      prisma.emoji.upsert({
-        where: {
-          serverUrl_shortcode: { serverUrl, shortcode },
-        },
-        create: {
-          server: { connect: { url: serverUrl } },
-          shortcode,
-          url,
-          category,
-          tags,
-          sensitive,
-        },
-        update: {
-          url,
-          category,
-          tags,
-          sensitive,
-        },
-      }),
-    ),
-  )
+  for (const { name: shortcode, url, category, aliases: tags, isSensitive: sensitive } of data.emojis) {
+    await prisma.emoji.upsert({
+      where: {
+        serverUrl_shortcode: { serverUrl, shortcode },
+      },
+      create: {
+        server: { connect: { url: serverUrl } },
+        shortcode,
+        url,
+        category,
+        tags,
+        sensitive,
+      },
+      update: {
+        url,
+        category,
+        tags,
+        sensitive,
+      },
+    })
+  }
+
+  await prisma.server.update({
+    where: { url: serverUrl },
+    data: { emojiUpdatedAt: new Date() },
+  })
+
+  return await prisma.emoji.findMany({
+    where: { serverUrl },
+    orderBy: { shortcode: 'asc' },
+  })
 }

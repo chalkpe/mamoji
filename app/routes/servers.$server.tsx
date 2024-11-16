@@ -15,23 +15,12 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '~/components/ui/input'
 import { Checkbox } from '~/components/ui/checkbox'
-import { fetchServerType, findEmojis, upsertEmojis } from '~/lib/api'
+import { upsertEmojis } from '~/lib/api'
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
   const server = params.server
   if (!server) throw json('Parameter not found', { status: 400 })
-
-  const { error, data } = await fetchServerType(server)
-  if (error || !data) throw json(error, { status: 400 })
-
-  await prisma.server.upsert({
-    where: { url: server },
-    create: { url: server, name: data.name, software: data.software },
-    update: { name: data.name, software: data.software },
-  })
-
-  const emojis = await findEmojis(server)
-  return json({ server, emojis: emojis.length > 0 ? emojis : await upsertEmojis(server, data.software) }) // TODO: way to force upsert emojis
+  return json({ server, emojis: await upsertEmojis(server) })
 }
 
 const formSchema = z.object({

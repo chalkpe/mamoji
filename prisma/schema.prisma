@@ -16,7 +16,9 @@ model Server {
   url      String         @id
   name     String
   software ServerSoftware
-  emojis   Emoji[]
+
+  emojis         Emoji[]
+  emojiUpdatedAt DateTime @default(now())
 }
 
 model User {
