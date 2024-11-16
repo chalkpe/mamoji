@@ -68,20 +68,27 @@ const mastodonEmojisSchema = z.array(
   }),
 )
 
-export async function getEmojis(serverUrl: string, serverSoftware: ServerSoftware) {
+export async function upsertEmojis(serverUrl: string, serverSoftware: ServerSoftware) {
   try {
     switch (serverSoftware) {
       case ServerSoftware.MASTODON:
-        return getMastodonEmojis(serverUrl)
+        return upsertMastodonEmojis(serverUrl)
       case ServerSoftware.MISSKEY:
-        return getMisskeyEmojis(serverUrl)
+        return upsertMisskeyEmojis(serverUrl)
     }
   } catch (error) {
     return []
   }
 }
 
-async function getMastodonEmojis(serverUrl: string) {
+export async function findEmojis(serverUrl: string) {
+  return await prisma.emoji.findMany({
+    where: { serverUrl },
+    orderBy: { shortcode: 'asc' },
+  })
+}
+
+async function upsertMastodonEmojis(serverUrl: string) {
   const res = await fetch(`https://${serverUrl}${mastodonEndpoint}`).then((res) => res.json())
   const data = mastodonEmojisSchema.parse(res)
 
@@ -120,7 +127,7 @@ const misskeyEmojisSchema = z.object({
   ),
 })
 
-async function getMisskeyEmojis(serverUrl: string) {
+async function upsertMisskeyEmojis(serverUrl: string) {
   const res = await fetch(`https://${serverUrl}${misskeyEndpoint}`).then((res) => res.json())
   const data = misskeyEmojisSchema.parse(res)
 
@@ -130,7 +137,9 @@ async function getMisskeyEmojis(serverUrl: string) {
   if (duplicates.length > 0) {
     await prisma.server.delete({ where: { url: serverUrl } })
     throw json(
-      `${serverUrl} 이모지 등록 실패. 이모지 이름이 중복되었습니다.\n중복된 이모지: ${duplicates.sort((a, b) => a.localeCompare(b)).join(', ')}`,
+      `${serverUrl} 이모지 등록 실패. 이모지 이름이 중복되었습니다.\n중복된 이모지: ${duplicates
+        .sort((a, b) => a.localeCompare(b))
+        .join(', ')}`,
     )
   }
 

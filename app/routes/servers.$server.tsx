@@ -15,7 +15,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '~/components/ui/input'
 import { Checkbox } from '~/components/ui/checkbox'
-import { fetchServerType, getEmojis } from '~/lib/api'
+import { fetchServerType, findEmojis, upsertEmojis } from '~/lib/api'
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
   const server = params.server
@@ -30,9 +30,8 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
     update: { name: data.name, software: data.software },
   })
 
-  const emojis = await getEmojis(server, data.software)
-
-  return json({ server, emojis })
+  const emojis = await findEmojis(server)
+  return json({ server, emojis: emojis.length > 0 ? emojis : await upsertEmojis(server, data.software) }) // TODO: way to force upsert emojis
 }
 
 const formSchema = z.object({
