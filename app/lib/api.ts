@@ -76,10 +76,10 @@ export async function upsertEmojis(serverUrl: string) {
     where: { url: serverUrl },
     create: { url: serverUrl, name: data.name, software: data.software },
     update: { name: data.name, software: data.software },
+    select: { _count: { select: { emojis: true } }, emojiUpdatedAt: true },
   })
 
-
-  if ((Date.now() - server.emojiUpdatedAt.getTime()) < 1000 * 60 * 60 * 24) {
+  if (server._count.emojis > 0 && Date.now() - server.emojiUpdatedAt.getTime() < 1000 * 60 * 60 * 24) {
     return await prisma.emoji.findMany({
       where: { serverUrl },
       orderBy: { shortcode: 'asc' },
