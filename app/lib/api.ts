@@ -68,6 +68,14 @@ const mastodonEmojisSchema = z.array(
   }),
 )
 
+async function findEmojis(serverUrl: string) {
+  return await prisma.emoji.findMany({
+    where: { serverUrl },
+    orderBy: { shortcode: 'asc' },
+    include: { author: true },
+  })
+}
+
 export async function upsertEmojis(serverUrl: string) {
   const { error, data } = await fetchServerType(serverUrl)
   if (error || !data) throw json(error, { status: 400 })
@@ -80,10 +88,7 @@ export async function upsertEmojis(serverUrl: string) {
   })
 
   if (server._count.emojis > 0 && Date.now() - server.emojiUpdatedAt.getTime() < 1000 * 60 * 60 * 24) {
-    return await prisma.emoji.findMany({
-      where: { serverUrl },
-      orderBy: { shortcode: 'asc' },
-    })
+    return await findEmojis(serverUrl)
   }
 
   try {
@@ -125,10 +130,7 @@ async function upsertMastodonEmojis(serverUrl: string) {
     data: { emojiUpdatedAt: new Date() },
   })
 
-  return await prisma.emoji.findMany({
-    where: { serverUrl },
-    orderBy: { shortcode: 'asc' },
-  })
+  return await findEmojis(serverUrl)
 }
 
 const misskeyEndpoint = '/api/emojis'
@@ -188,8 +190,44 @@ async function upsertMisskeyEmojis(serverUrl: string) {
     data: { emojiUpdatedAt: new Date() },
   })
 
-  return await prisma.emoji.findMany({
-    where: { serverUrl },
-    orderBy: { shortcode: 'asc' },
+  return await findEmojis(serverUrl)
+}
+
+const resourceSchema = z.object({
+  links: z.array(
+    z.object({
+      rel: z.string(),
+      type: z.string().optional(),
+      href: z.string().url().optional(),
+    }),
+  ),
+})
+
+const userSchema = z.object({
+  name: z.string(),
+  icon: z.object({
+    url: z.string().url(),
+  }),
+})
+
+export async function upsertUserByHandle(handle: string) {
+  const serverUrl = handle.split('@')[1]
+
+  // Fetch .well-known/webfinger
+  const res = resourceSchema.parse(
+    await fetch(`https://${serverUrl}/.well-known/webfinger?resource=acct:${handle}`).then((res) => res.json()),
+  )
+  const href = res.links.find((l) => l.rel === 'self')?.href
+  if (!href) {
+    throw json('사용자 정보를 확인할 수 없습니다.')
+  }
+
+  // Fetch user
+  const user = userSchema.parse(await fetch(href, { headers: { Accept: 'application/activity+json' } }).then((res) => res.json()))
+
+  return await prisma.user.upsert({
+    where: { handle },
+    create: { handle, name: user.name, avatarUrl: user.icon.url },
+    update: { name: user.name, avatarUrl: user.icon.url },
   })
 }
