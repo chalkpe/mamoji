@@ -24,7 +24,7 @@ export default function Servers() {
   const actionData = useActionData<typeof action>()
 
   return (
-    <section className="flex-1 flex flex-col gap-5">
+    <section className="flex-1 flex flex-col gap-5 pb-5">
       <h1 className="text-xl">서버 추가</h1>
       <article className="flex flex-col gap-5">
         <Form className="flex flex-row gap-2 self-stretch" method="post">
