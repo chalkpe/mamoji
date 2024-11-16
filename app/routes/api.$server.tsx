@@ -6,7 +6,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     await prisma.emoji.findMany({
       where: { serverUrl: params.server },
       orderBy: { shortcode: 'asc' },
-      select: { shortcode: true, copyable: true, authorHandle: true },
+      select: { shortcode: true, tags: true, sensitive: true, copyable: true, authorHandle: true },
     }),
   )
 }

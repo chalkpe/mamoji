@@ -7,7 +7,7 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '~/comp
 import { Input } from '~/components/ui/input'
 import { Separator } from '~/components/ui/separator'
 import { prisma } from '~/db.server'
-import { isMastodon } from '~/lib/mastodon'
+import { fetchServerType } from '~/lib/api'
 
 export const loader = async () => {
   return json(
@@ -96,15 +96,15 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: '서버 주소를 입력해주세요.' }, { status: 400 })
   }
 
-  const { error, name } = await isMastodon(url)
-  if (error || !name) {
+  const { error, data } = await fetchServerType(url)
+  if (error || !data) {
     return json({ error }, { status: 400 })
   }
 
   await prisma.server.upsert({
     where: { url },
-    create: { url, name },
-    update: { name },
+    create: { url, name: data.name, software: data.software },
+    update: { name: data.name, software: data.software },
   })
 
   return redirect(`/servers/${url}`)

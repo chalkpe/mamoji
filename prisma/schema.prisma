@@ -7,10 +7,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum ServerSoftware {
+  MASTODON
+  MISSKEY
+}
+
 model Server {
-  url    String  @id
-  name   String
-  emojis Emoji[]
+  url      String         @id
+  name     String
+  software ServerSoftware
+  emojis   Emoji[]
 }
 
 model User {
@@ -26,6 +32,7 @@ model Emoji {
   category  String?
   tags      String[]
   copyable  Boolean  @default(true)
+  sensitive Boolean  @default(false)
 
   serverUrl String
   server    Server @relation(fields: [serverUrl], references: [url])

@@ -1,6 +1,6 @@
 import { ActionFunctionArgs, json, LoaderFunctionArgs } from '@remix-run/node'
 import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useNavigation } from '@remix-run/react'
-import { Check } from 'lucide-react'
+import { AlertCircle, Check } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { useRemixForm, getValidatedFormData } from 'remix-hook-form'
 import { useFieldArray } from 'react-hook-form'
@@ -10,36 +10,27 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage, Form as UiForm } from '~/components/ui/form'
 import { prisma } from '~/db.server'
-import { getEmoji, isMastodon } from '~/lib/mastodon'
 import { nullsFirst } from '~/lib/utils'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '~/components/ui/input'
 import { Checkbox } from '~/components/ui/checkbox'
+import { fetchServerType, getEmojis } from '~/lib/api'
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
   const server = params.server
   if (!server) throw json('Parameter not found', { status: 400 })
 
-  const { error, name } = await isMastodon(server)
-  if (error || !name) throw json(error, { status: 400 })
+  const { error, data } = await fetchServerType(server)
+  if (error || !data) throw json(error, { status: 400 })
 
   await prisma.server.upsert({
     where: { url: server },
-    create: { url: server, name },
-    update: { name },
+    create: { url: server, name: data.name, software: data.software },
+    update: { name: data.name, software: data.software },
   })
 
-  const res = await getEmoji(server)
-  const emojis = await Promise.all(
-    res.map(({ shortcode, url, category }) =>
-      prisma.emoji.upsert({
-        where: { serverUrl_shortcode: { serverUrl: server, shortcode } },
-        create: { server: { connect: { url: server } }, shortcode, url, category },
-        update: { url, category },
-      }),
-    ),
-  )
+  const emojis = await getEmojis(server, data.software)
 
   return json({ server, emojis })
 }
@@ -205,8 +196,9 @@ export function ErrorBoundary() {
   if (isRouteErrorResponse(error)) {
     return (
       <Alert>
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error.data}</AlertDescription>
+        <AlertCircle />
+        <AlertTitle>오류</AlertTitle>
+        <AlertDescription className="whitespace-pre-wrap">{error.data}</AlertDescription>
       </Alert>
     )
   } else {
