@@ -126,7 +126,7 @@ export default function Server() {
         <Card>
           <CardHeader>
             <CardTitle>{server}</CardTitle>
-            <CardDescription>{emojis.length}개의 이모지</CardDescription>
+            <CardDescription>{emojis.length.toLocaleString()}개의 이모지</CardDescription>
           </CardHeader>
 
           <CardFooter className="flex flex-row gap-2">

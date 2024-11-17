@@ -1,5 +1,5 @@
 import { json, ActionFunctionArgs } from '@remix-run/node'
-import { useLoaderData, Form, redirect, useActionData, useNavigation, NavLink, Link } from '@remix-run/react'
+import { useLoaderData, Form, useActionData, useNavigation, NavLink, Link } from '@remix-run/react'
 import { AlertCircle, Braces, Globe, Loader2, LogIn } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
@@ -27,8 +27,8 @@ export default function Servers() {
     <section className="flex-1 flex flex-col gap-5">
       <h1 className="text-xl">서버 추가</h1>
       <article className="flex flex-col gap-5">
-        <Form className="flex flex-row gap-2 self-stretch" method="post">
-          <Input type="text" name="url" placeholder="서버 주소" required />
+        <Form className="flex flex-row flex-wrap gap-2 self-stretch justify-end" method="post">
+          <Input type="text" name="url" placeholder="서버 주소" required className="w-auto min-w-32 flex-1" />
 
           {navigation.state === 'submitting' ? (
             <Button disabled>
@@ -56,15 +56,21 @@ export default function Servers() {
             <CardHeader>
               <CardTitle className="flex flex-row items-center gap-2">
                 <img src={`https://icon.horse/icon/${server.url}`} alt={`${server.name} 아이콘`} className="size-5 rounded-md" />
-                {server.url}
+                <span className="flex-1 overflow-hidden text-ellipsis">{server.url}</span>
               </CardTitle>
-              <CardDescription className="flex flex-row items-center gap-2 h-4">
-                <span>{server.emojis.length.toLocaleString()}개의 이모지</span>
-                <Separator orientation="vertical" />
-                <span>{new Set(server.emojis.map((emoji) => emoji.category)).size.toLocaleString()}개의 카테고리</span>
+              <CardDescription className="flex flex-row flex-wrap items-center gap-2">
+                {server.emojis.length === 0 ? (
+                  <span>아직 이모지를 불러오지 않았습니다.</span>
+                ) : (
+                  <>
+                    <span>{server.emojis.length.toLocaleString()}개의 이모지</span>
+                    <Separator orientation="vertical" className="h-4" />
+                    <span>{new Set(server.emojis.map((emoji) => emoji.category)).size.toLocaleString()}개의 카테고리</span>
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
-            <CardFooter className="flex flex-row w-full justify-end gap-2">
+            <CardFooter className="flex flex-row flex-wrap w-full justify-end gap-2">
               <Link to={`/api/${server.url}`} reloadDocument>
                 <Button variant="outline">
                   <Braces /> API
@@ -107,7 +113,7 @@ export async function action({ request }: ActionFunctionArgs) {
     update: { name: data.name, software: data.software },
   })
 
-  return redirect(`/servers/${url}`)
+  return json({ error: null }, { status: 201 })
 }
 
 export const handle = {
