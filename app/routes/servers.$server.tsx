@@ -1,6 +1,6 @@
 import { ActionFunctionArgs, json, LoaderFunctionArgs } from '@remix-run/node'
 import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useNavigation } from '@remix-run/react'
-import { AlertCircle, Check, ExternalLink } from 'lucide-react'
+import { AlertCircle, Check, ExternalLink, Tag, Text, User } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useRemixForm, getValidatedFormData } from 'remix-hook-form'
 import { useFieldArray } from 'react-hook-form'
@@ -27,6 +27,8 @@ const formSchema = z.object({
   emojis: z.array(z.object({ serverUrl: z.string(), shortcode: z.string() })).nonempty({ message: '이모지를 선택하세요.' }),
   author: z.union([z.literal(''), z.string().email({ message: '올바른 핸들을 입력하세요.' })]),
   copyable: z.boolean(),
+  tags: z.string().optional(),
+  sensitive: z.boolean(),
 })
 
 const resolver = zodResolver(formSchema)
@@ -34,24 +36,39 @@ const resolver = zodResolver(formSchema)
 export default function Server() {
   const navigation = useNavigation()
   const { server, emojis } = useLoaderData<typeof loader>()
+
+  const [search, setSearch] = useState('')
+  const [searchBy, setSearchBy] = useState<'shortcode' | 'tag' | 'author'>()
   const [groupBy, setGroupBy] = useState<'category' | 'authorHandle'>('category')
+
+  const searchEmojis = useMemo(
+    () =>
+      emojis.filter((emoji) => {
+        if (search === '') return true
+        if (searchBy === 'shortcode') return emoji.shortcode.includes(search)
+        if (searchBy === 'tag') return emoji.tags.some((tag) => tag.includes(search))
+        if (searchBy === 'author') return emoji.authorHandle?.includes(search)
+        return true
+      }),
+    [emojis, search, searchBy],
+  )
 
   const emojiEntries: [string | null, typeof emojis][] = useMemo(
     () =>
-      [...new Set(emojis.map((emoji) => (groupBy === 'category' ? emoji.category : emoji.authorHandle)))]
+      [...new Set(searchEmojis.map((emoji) => (groupBy === 'category' ? emoji.category : emoji.authorHandle)))]
         .sort((groupBy === 'category' ? nullsFirst : nullsLast)((a, b) => a.localeCompare(b)))
         .map((groupId) => [
           groupId,
-          emojis
+          searchEmojis
             .filter((emoji) => (groupBy === 'category' ? emoji.category === groupId : emoji.authorHandle === groupId))
             .sort((a, b) => a.shortcode.localeCompare(b.shortcode)),
         ]),
-    [emojis, groupBy],
+    [searchEmojis, groupBy],
   )
 
   const form = useRemixForm<z.infer<typeof formSchema>>({
     resolver,
-    defaultValues: { emojis: [], author: '', copyable: true },
+    defaultValues: { emojis: [], author: '', copyable: true, tags: '', sensitive: false },
   })
 
   const { fields, append, replace } = useFieldArray({ control: form.control, name: 'emojis' })
@@ -121,6 +138,17 @@ export default function Server() {
             </CardFooter>
           </Card>
         ))}
+        {search && searchBy && emojiEntries.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>검색 결과 없음</CardTitle>
+              <CardDescription>
+                키워드: {search}, 조건: {searchBy}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>입력한 키워드에 해당하는 검색 결과가 없습니다.</CardContent>
+          </Card>
+        )}
       </section>
       <section className="flex flex-col gap-5">
         <Card>
@@ -141,6 +169,63 @@ export default function Server() {
               제작자별
             </Button>
           </CardFooter>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>검색하기</CardTitle>
+          </CardHeader>
+
+          <CardContent className="flex flex-col gap-2">
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="키워드를 입력하세요" />
+            <nav className="flex flex-row gap-2 justify-end">
+              <Button
+                className="flex-1"
+                variant={searchBy === 'shortcode' ? 'default' : 'outline'}
+                onClick={() => {
+                  if (searchBy === 'shortcode') {
+                    setSearch('')
+                    setSearchBy(undefined)
+                  } else {
+                    setSearchBy('shortcode')
+                  }
+                }}
+              >
+                <Text />
+                이름
+              </Button>
+              <Button
+                className="flex-1"
+                variant={searchBy === 'tag' ? 'default' : 'outline'}
+                onClick={() => {
+                  if (searchBy === 'tag') {
+                    setSearch('')
+                    setSearchBy(undefined)
+                  } else {
+                    setSearchBy('tag')
+                  }
+                }}
+              >
+                <Tag />
+                태그
+              </Button>
+              <Button
+                className="flex-1"
+                variant={searchBy === 'author' ? 'default' : 'outline'}
+                onClick={() => {
+                  if (searchBy === 'author') {
+                    setSearch('')
+                    setSearchBy(undefined)
+                  } else {
+                    setSearchBy('author')
+                  }
+                }}
+              >
+                <User />
+                제작자
+              </Button>
+            </nav>
+          </CardContent>
         </Card>
 
         <Card className="w-[23rem] flex-shrink-0 lg:mb-5">
@@ -176,6 +261,35 @@ export default function Server() {
                       </FormControl>
                       <FormDescription>{fields.length}개의 이모지</FormDescription>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>태그</FormLabel>
+                      <FormControl>
+                        <Input placeholder="예) 텍스트, 블롭모지" {...field} />
+                      </FormControl>
+                      <FormDescription>이모지의 태그들을 콤마로 구분해서 입력하세요.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sensitive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>열람 주의 이모지</FormLabel>
+                        <FormDescription>NSFW, 반짝이는 이모지 등에 설정하세요.</FormDescription>
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -248,7 +362,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ errors })
   }
 
-  const { emojis, author, copyable } = data
+  const { emojis, author, copyable, sensitive, tags } = data
 
   try {
     if (author !== '') await upsertUserByHandle(author)
@@ -264,7 +378,12 @@ export async function action({ request }: ActionFunctionArgs) {
     emojis.map(({ serverUrl, shortcode }) =>
       prisma.emoji.update({
         where: { serverUrl_shortcode: { serverUrl, shortcode } },
-        data: { copyable, authorHandle: author !== '' ? author : null },
+        data: {
+          copyable,
+          authorHandle: author !== '' ? author : null,
+          sensitive,
+          tags: tags ? [...new Set(tags.split(',').map((tag) => tag.trim()))] : undefined,
+        },
       }),
     ),
   )
