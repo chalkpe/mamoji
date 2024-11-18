@@ -2,6 +2,7 @@ import { json } from '@remix-run/node'
 import { z } from 'zod'
 import { prisma } from '~/db.server'
 import { ServerSoftware } from '@prisma/client'
+import { getErrorCause } from './utils'
 
 const wellKnownSchema = z.object({
   links: z.array(
@@ -54,7 +55,8 @@ export async function fetchServerType(serverUrl: string) {
 
     return { error: undefined, data: { name, software } }
   } catch (error) {
-    return { error: '서버에 연결할 수 없습니다.' }
+    const cause = getErrorCause(error)
+    return { error: '서버에 연결할 수 없습니다.' + (cause ? `\n${cause}` : '') }
   }
 }
 
@@ -103,9 +105,27 @@ export async function upsertEmojis(serverUrl: string) {
   }
 }
 
+async function checkDuplicates(serverUrl: string, names: string[]) {
+  const duplicates = [...new Set(names.filter((name, index) => names.indexOf(name) !== index))]
+
+  if (duplicates.length > 0) {
+    await prisma.server.delete({ where: { url: serverUrl } })
+    throw json(
+      `${serverUrl} 이모지 등록 실패. 이모지 이름이 중복되었습니다.\n중복된 이모지: ${duplicates
+        .sort((a, b) => a.localeCompare(b))
+        .join(', ')}`,
+    )
+  }
+}
+
 async function upsertMastodonEmojis(serverUrl: string) {
   const res = await fetch(`https://${serverUrl}${mastodonEndpoint}`).then((res) => res.json())
   const data = mastodonEmojisSchema.parse(res)
+
+  await checkDuplicates(
+    serverUrl,
+    data.map((emoji) => emoji.shortcode),
+  )
 
   for (const { shortcode, url, category } of data) {
     await prisma.emoji.upsert({
@@ -151,17 +171,10 @@ async function upsertMisskeyEmojis(serverUrl: string) {
   const res = await fetch(`https://${serverUrl}${misskeyEndpoint}`).then((res) => res.json())
   const data = misskeyEmojisSchema.parse(res)
 
-  const names = data.emojis.map((emoji) => emoji.name)
-  const duplicates = [...new Set(names.filter((name, index) => names.indexOf(name) !== index))]
-
-  if (duplicates.length > 0) {
-    await prisma.server.delete({ where: { url: serverUrl } })
-    throw json(
-      `${serverUrl} 이모지 등록 실패. 이모지 이름이 중복되었습니다.\n중복된 이모지: ${duplicates
-        .sort((a, b) => a.localeCompare(b))
-        .join(', ')}`,
-    )
-  }
+  await checkDuplicates(
+    serverUrl,
+    data.emojis.map((emoji) => emoji.name),
+  )
 
   for (const { name: shortcode, url, category, aliases: tags, isSensitive: sensitive } of data.emojis) {
     await prisma.emoji.upsert({
@@ -214,17 +227,19 @@ export async function upsertUserByHandle(handle: string) {
   const serverUrl = handle.split('@')[1]
 
   // Fetch .well-known/webfinger
-  const res = resourceSchema.parse(
-    await fetch(`https://${serverUrl}/.well-known/webfinger?resource=acct:${handle}`).then((res) => res.json()),
-  )
-  const href = res.links.find((l) => l.rel === 'self')?.href
-  if (!href) {
-    throw json('사용자 정보를 확인할 수 없습니다.')
-  }
+  const resourceResponse = await fetch(`https://${serverUrl}/.well-known/webfinger?resource=acct:${handle}`)
+  if (resourceResponse.status === 404) throw new Error('존재하지 않는 사용자입니다.')
+
+  const resource = resourceSchema.parse(await resourceResponse.json())
+  const href = resource.links.find((l) => l.rel === 'self')?.href
+  if (!href) throw new Error('사용자 정보에 해당하는 링크가 없습니다.')
 
   // Fetch user
-  const user = userSchema.parse(await fetch(href, { headers: { Accept: 'application/activity+json' } }).then((res) => res.json()))
+  const userResponse = await fetch(href, { headers: { Accept: 'application/activity+json' } })
+  if (userResponse.status === 404) throw new Error('존재하지 않는 사용자 정보입니다.')
+  if (userResponse.status === 401) throw new Error('사용자 정보에 접근할 수 없습니다.') // TODO: https://docs.joinmastodon.org/spec/security/#http
 
+  const user = userSchema.parse(await userResponse.json())
   return await prisma.user.upsert({
     where: { handle },
     create: { handle, name: user.name, avatarUrl: user.icon.url },

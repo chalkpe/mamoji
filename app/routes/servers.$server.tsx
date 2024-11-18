@@ -10,7 +10,7 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage, Form as UiForm } from '~/components/ui/form'
 import { prisma } from '~/db.server'
-import { nullsFirst, nullsLast } from '~/lib/utils'
+import { getErrorCause, nullsFirst, nullsLast } from '~/lib/utils'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '~/components/ui/input'
@@ -303,7 +303,7 @@ export default function Server() {
                         <Input placeholder="예) chalk@chalk.moe" {...field} />
                       </FormControl>
                       <FormDescription>이모지 제작자의 핸들을 입력하세요.</FormDescription>
-                      <FormMessage />
+                      <FormMessage className="whitespace-pre-wrap" />
                     </FormItem>
                   )}
                 />
@@ -367,9 +367,14 @@ export async function action({ request }: ActionFunctionArgs) {
   try {
     if (author !== '') await upsertUserByHandle(author)
   } catch (error) {
+    const cause = getErrorCause(error)
     return json({
       errors: {
-        author: { message: '사용자 정보를 확인할 수 없습니다.', ref: { name: 'author' }, type: 'server' },
+        author: {
+          type: 'server',
+          ref: { name: 'author' },
+          message: cause ?? '사용자 정보를 확인할 수 없습니다.',
+        },
       },
     })
   }
@@ -382,7 +387,16 @@ export async function action({ request }: ActionFunctionArgs) {
           copyable,
           authorHandle: author !== '' ? author : null,
           sensitive,
-          tags: tags ? [...new Set(tags.split(',').map((tag) => tag.trim()))] : undefined,
+          tags: tags
+            ? [
+                ...new Set(
+                  tags
+                    .split(',')
+                    .map((tag) => tag.trim())
+                    .filter((tag) => tag.length > 0),
+                ),
+              ]
+            : undefined,
         },
       }),
     ),

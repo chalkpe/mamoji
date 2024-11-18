@@ -44,7 +44,7 @@ export default function Servers() {
           <Alert>
             <AlertCircle />
             <AlertTitle>오류</AlertTitle>
-            <AlertDescription>{actionData.error}</AlertDescription>
+            <AlertDescription className="whitespace-pre-wrap">{actionData.error}</AlertDescription>
           </Alert>
         )}
       </article>
