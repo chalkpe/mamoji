@@ -1,4 +1,4 @@
-import { FC } from 'react'
+import { FC, memo } from 'react'
 import { Emoji } from '@prisma/client'
 import { cn } from '~/lib/utils'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card'
@@ -8,7 +8,7 @@ interface AppEmojiProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   emoji: Emoji
 }
 
-export const AppEmoji: FC<AppEmojiProps> = ({ emoji, className, ...props }) => {
+const InternalAppEmoji: FC<AppEmojiProps> = ({ emoji, className, ...props }) => {
   return (
     <HoverCard>
       <HoverCardTrigger>
@@ -72,3 +72,5 @@ export const AppEmoji: FC<AppEmojiProps> = ({ emoji, className, ...props }) => {
     </HoverCard>
   )
 }
+
+export const AppEmoji = memo(InternalAppEmoji)

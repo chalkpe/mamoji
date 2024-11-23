@@ -1,26 +1,27 @@
-import { ActionFunctionArgs, json, LoaderFunctionArgs } from '@remix-run/node'
-import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useNavigation } from '@remix-run/react'
-import { AlertCircle, Check, ExternalLink, Tag, Text, User } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { ActionFunctionArgs, defer, json, LoaderFunctionArgs } from '@remix-run/node'
+import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useNavigation, Await } from '@remix-run/react'
+import { AlertCircle, Tag, Text, User } from 'lucide-react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRemixForm, getValidatedFormData } from 'remix-hook-form'
 import { useFieldArray } from 'react-hook-form'
 import { AppEmoji } from '~/components/app-emoji'
+import { AppEmojiLibrary } from '~/components/app-emoji-library'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage, Form as UiForm } from '~/components/ui/form'
 import { prisma } from '~/db.server'
-import { getErrorCause, nullsFirst, nullsLast } from '~/lib/utils'
+import { getErrorCause } from '~/lib/utils'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '~/components/ui/input'
 import { Checkbox } from '~/components/ui/checkbox'
 import { upsertEmojis, upsertUserByHandle } from '~/lib/api'
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export async function loader({ params }: LoaderFunctionArgs) {
   const server = params.server
   if (!server) throw json('Parameter not found', { status: 400 })
-  return json({ server, emojis: await upsertEmojis(server) })
+  return defer({ server, emojis: upsertEmojis(server) })
 }
 
 const formSchema = z.object({
@@ -41,31 +42,6 @@ export default function Server() {
   const [searchBy, setSearchBy] = useState<'shortcode' | 'tag' | 'author'>()
   const [groupBy, setGroupBy] = useState<'category' | 'authorHandle'>('category')
 
-  const searchEmojis = useMemo(
-    () =>
-      emojis.filter((emoji) => {
-        if (search === '') return true
-        if (searchBy === 'shortcode') return emoji.shortcode.includes(search)
-        if (searchBy === 'tag') return emoji.tags.some((tag) => tag.includes(search))
-        if (searchBy === 'author') return emoji.authorHandle?.includes(search)
-        return true
-      }),
-    [emojis, search, searchBy],
-  )
-
-  const emojiEntries: [string | null, typeof emojis][] = useMemo(
-    () =>
-      [...new Set(searchEmojis.map((emoji) => (groupBy === 'category' ? emoji.category : emoji.authorHandle)))]
-        .sort((groupBy === 'category' ? nullsFirst : nullsLast)((a, b) => a.localeCompare(b)))
-        .map((groupId) => [
-          groupId,
-          searchEmojis
-            .filter((emoji) => (groupBy === 'category' ? emoji.category === groupId : emoji.authorHandle === groupId))
-            .sort((a, b) => a.shortcode.localeCompare(b.shortcode)),
-        ]),
-    [searchEmojis, groupBy],
-  )
-
   const form = useRemixForm<z.infer<typeof formSchema>>({
     resolver,
     defaultValues: { emojis: [], author: '', copyable: true, tags: '', sensitive: false },
@@ -80,81 +56,32 @@ export default function Server() {
 
   return (
     <>
-      <section className="flex-auto overflow-y-scroll flex flex-col gap-5 lg:pb-5">
-        {emojiEntries.map(([groupId, list]) => (
-          <Card key={groupId ?? 'undefined'}>
-            <CardHeader>
-              <CardTitle className="flex flex-row gap-2 items-center">
-                {groupBy === 'authorHandle' && groupId && (
-                  <img
-                    src={list[0].author?.avatarUrl}
-                    alt={list[0].author?.name}
-                    title={list[0].author?.name}
-                    className="size-5 rounded-md"
-                  />
-                )}
-                <span>{groupId ?? (groupBy === 'category' ? '커스텀' : '제작자 정보 없음')}</span>
+      <Suspense fallback={<Alert>이모지 로딩 중...</Alert>}>
+        <Await resolve={emojis}>
+          {(emojis) => (
+            <AppEmojiLibrary
+              emojis={emojis}
+              search={search}
+              searchBy={searchBy}
+              groupBy={groupBy}
+              selectedEmojis={fields}
+              className="flex-auto lg:pb-5"
+              onSelectEmojis={(emojis) => append(emojis.filter((emoji) => !fields.find((f) => f.shortcode === emoji.shortcode)))}
+              onUnselectEmojis={(emojis) => replace(fields.filter((f) => !emojis.find((emoji) => emoji.shortcode === f.shortcode)))}
+            />
+          )}
+        </Await>
+      </Suspense>
 
-                {groupBy === 'authorHandle' && groupId && (
-                  <a
-                    title="제작자 페이지로 이동"
-                    href={`https://${groupId.split('@')[1]}/@${groupId.split('@')[0]}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className=""
-                  >
-                    <ExternalLink />
-                  </a>
-                )}
-              </CardTitle>
-              <CardDescription>{list.length.toLocaleString()}개의 이모지</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {list.map((emoji) => (
-                <AppEmoji
-                  key={emoji.shortcode}
-                  emoji={emoji}
-                  onClick={() => !fields.find((f) => f.shortcode === emoji.shortcode) && append(emoji)}
-                />
-              ))}
-            </CardContent>
-            <CardFooter>
-              {list.every((emoji) => fields.find((f) => f.shortcode === emoji.shortcode)) ? (
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => replace(fields.filter((f) => !list.find((emoji) => f.shortcode === emoji.shortcode)))}
-                >
-                  <Check /> 전부 해제
-                </Button>
-              ) : (
-                <Button
-                  className="w-full"
-                  onClick={() => append(list.filter((emoji) => !fields.find((f) => f.shortcode === emoji.shortcode)))}
-                >
-                  <Check /> 전부 선택
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        ))}
-        {search && searchBy && emojiEntries.length === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>검색 결과 없음</CardTitle>
-              <CardDescription>
-                키워드: {search}, 조건: {searchBy}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>입력한 키워드에 해당하는 검색 결과가 없습니다.</CardContent>
-          </Card>
-        )}
-      </section>
       <section className="flex flex-col gap-5">
         <Card>
           <CardHeader>
             <CardTitle>{server}</CardTitle>
-            <CardDescription>{emojis.length.toLocaleString()}개의 이모지</CardDescription>
+            <CardDescription>
+              <Suspense fallback="이모지 로딩 중...">
+                <Await resolve={emojis}>{(emojis) => `${emojis.length.toLocaleString()}개의 이모지`}</Await>
+              </Suspense>
+            </CardDescription>
           </CardHeader>
 
           <CardFooter className="flex flex-row gap-2">
@@ -244,19 +171,25 @@ export default function Server() {
                       <FormLabel>선택된 이모지</FormLabel>
                       <FormControl>
                         {fields.length > 0 && (
-                          <div className="max-h-[12rem] overflow-y-scroll flex flex-row flex-wrap gap-2">
-                            {fields.flatMap(({ shortcode }) => {
-                              const emoji = emojis.find((e) => e.shortcode === shortcode)
-                              if (!emoji) return []
-                              return [
-                                <AppEmoji
-                                  key={shortcode}
-                                  emoji={emoji}
-                                  onClick={() => replace(fields.filter((f) => f.shortcode !== shortcode))}
-                                />,
-                              ]
-                            })}
-                          </div>
+                          <Suspense>
+                            <Await resolve={emojis}>
+                              {(emojis) => (
+                                <div className="max-h-[12rem] overflow-y-scroll flex flex-row flex-wrap gap-2">
+                                  {fields.flatMap(({ shortcode }) => {
+                                    const emoji = emojis.find((e) => e.shortcode === shortcode)
+                                    if (!emoji) return []
+                                    return [
+                                      <AppEmoji
+                                        key={shortcode}
+                                        emoji={emoji}
+                                        onClick={() => replace(fields.filter((f) => f.shortcode !== shortcode))}
+                                      />,
+                                    ]
+                                  })}
+                                </div>
+                              )}
+                            </Await>
+                          </Suspense>
                         )}
                       </FormControl>
                       <FormDescription>{fields.length}개의 이모지</FormDescription>

@@ -70,7 +70,7 @@ const mastodonEmojisSchema = z.array(
   }),
 )
 
-async function findEmojis(serverUrl: string) {
+export async function findEmojis(serverUrl: string) {
   return await prisma.emoji.findMany({
     where: { serverUrl },
     orderBy: { shortcode: 'asc' },

@@ -1,6 +1,6 @@
 import { json, ActionFunctionArgs } from '@remix-run/node'
 import { useLoaderData, Form, useActionData, useNavigation, NavLink, Link } from '@remix-run/react'
-import { AlertCircle, Braces, Globe, Loader2, LogIn } from 'lucide-react'
+import { AlertCircle, Braces, Eye, Loader2, LogIn } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
@@ -36,7 +36,7 @@ export default function Servers() {
             </Button>
           ) : (
             <Button type="submit">
-              <LogIn /> 추가하기
+              <LogIn /> 추가
             </Button>
           )}
         </Form>
@@ -56,7 +56,9 @@ export default function Servers() {
             <CardHeader>
               <CardTitle className="flex flex-row items-center gap-2">
                 <img src={`https://icon.horse/icon/${server.url}`} alt={`${server.name} 아이콘`} className="size-5 rounded-md" />
-                <span className="flex-1 overflow-hidden text-ellipsis">{server.url}</span>
+                <a href={`https://${server.url}`} target="_blank" rel="noreferrer">
+                  <span className="flex-1 overflow-hidden text-ellipsis">{server.url}</span>
+                </a>
               </CardTitle>
               <CardDescription className="flex flex-row flex-wrap items-center gap-2">
                 {server.emojis.length === 0 ? (
@@ -76,14 +78,16 @@ export default function Servers() {
                   <Braces /> API
                 </Button>
               </Link>
-              <a href={`https://${server.url}`} target="_blank" rel="noreferrer">
-                <Button variant="outline">
-                  <Globe /> 접속하기
-                </Button>
-              </a>
+              <NavLink to={`/explore/${server.url}`}>
+                {({ isPending }) => (
+                  <Button variant="outline" disabled={isPending}>
+                    {isPending ? <Loader2 className="animate-spin" /> : <Eye />} 열람
+                  </Button>
+                )}
+              </NavLink>
               <NavLink to={`/servers/${server.url}`}>
                 {({ isPending }) => (
-                  <Button disabled={isPending}>{isPending ? <Loader2 className="animate-spin" /> : <LogIn />} 관리하기</Button>
+                  <Button disabled={isPending}>{isPending ? <Loader2 className="animate-spin" /> : <LogIn />} 관리</Button>
                 )}
               </NavLink>
             </CardFooter>
@@ -117,5 +121,5 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export const handle = {
-  breadcrumb: '서버',
+  breadcrumb: '서버 목록',
 }
