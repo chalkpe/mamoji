@@ -17,6 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '~/components/ui/input'
 import { Checkbox } from '~/components/ui/checkbox'
 import { upsertEmojis, upsertUserByHandle } from '~/lib/api'
+import { Textarea } from '~/components/ui/textarea'
 
 export async function loader({ params }: LoaderFunctionArgs) {
   const server = params.server
@@ -30,6 +31,7 @@ const formSchema = z.object({
   copyable: z.boolean(),
   tags: z.string().optional(),
   sensitive: z.boolean(),
+  notes: z.string().optional(),
 })
 
 const resolver = zodResolver(formSchema)
@@ -44,7 +46,7 @@ export default function Server() {
 
   const form = useRemixForm<z.infer<typeof formSchema>>({
     resolver,
-    defaultValues: { emojis: [], author: '', copyable: true, tags: '', sensitive: false },
+    defaultValues: { emojis: [], author: '', copyable: true, tags: '', sensitive: false, notes: '' },
   })
 
   const { fields, append, replace } = useFieldArray({ control: form.control, name: 'emojis' })
@@ -255,6 +257,20 @@ export default function Server() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>메모</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} />
+                      </FormControl>
+                      <FormDescription>이모지 관련 추가 정보를 입력할 수 있습니다.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
               <CardFooter className="flex justify-between">
                 <Button variant="outline" type="reset">
@@ -295,7 +311,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ errors })
   }
 
-  const { emojis, author, copyable, sensitive, tags } = data
+  const { emojis, author, copyable, sensitive, tags, notes } = data
 
   try {
     if (author !== '') await upsertUserByHandle(author)
@@ -330,6 +346,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 ),
               ]
             : undefined,
+          notes,
         },
       }),
     ),

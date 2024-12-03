@@ -2,7 +2,7 @@ import { FC, memo } from 'react'
 import { Emoji } from '@prisma/client'
 import { cn } from '~/lib/utils'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card'
-import { Book, Copy, CopyX, Tag, TriangleAlert, User } from 'lucide-react'
+import { Book, Copy, CopyX, StickyNote, Tag, TriangleAlert, User } from 'lucide-react'
 
 interface AppEmojiProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   emoji: Emoji
@@ -66,6 +66,10 @@ const InternalAppEmoji: FC<AppEmojiProps> = ({ emoji, className, ...props }) => 
             <span className="text-sm text-muted-foreground">
               타 서버로의 복사 {emoji.copyable ? <span className="text-green-500">허용</span> : <span className="text-red-500">거부</span>}
             </span>
+          </div>
+          <div className="flex items-start">
+            <StickyNote className="mr-2 h-4 w-4 opacity-70" />{' '}
+            <span className="text-sm whitespace-pre-wrap">{emoji.notes ?? <span className="text-muted-foreground">메모 없음</span>}</span>
           </div>
         </div>
       </HoverCardContent>
