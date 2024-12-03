@@ -67,7 +67,7 @@ export default function Server() {
               searchBy={searchBy}
               groupBy={groupBy}
               selectedEmojis={fields}
-              className="flex-auto lg:pb-5"
+              className="lg:pb-5 flex-1"
               onSelectEmojis={(emojis) => append(emojis.filter((emoji) => !fields.find((f) => f.shortcode === emoji.shortcode)))}
               onUnselectEmojis={(emojis) => replace(fields.filter((f) => !emojis.find((emoji) => emoji.shortcode === f.shortcode)))}
             />
@@ -75,7 +75,7 @@ export default function Server() {
         </Await>
       </Suspense>
 
-      <section className="flex flex-col gap-5">
+      <section className="flex flex-col gap-5 overflow-y-scroll">
         <Card>
           <CardHeader>
             <CardTitle>{server}</CardTitle>

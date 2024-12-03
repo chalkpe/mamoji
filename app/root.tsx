@@ -61,7 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </BreadcrumbList>
               </Breadcrumb>
             </header>
-            <div className="w-full h-screen max-h-screen p-5 lg:pb-0 flex flex-col lg:flex-row gap-5 pt-[calc(70px+1.25rem)]">
+            <div className="w-full h-screen max-h-screen p-5 pb-0 flex flex-row gap-5 pt-[calc(70px+1.25rem)]">
               {children}
             </div>
           </main>
