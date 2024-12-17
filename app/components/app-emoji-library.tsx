@@ -4,12 +4,9 @@ import { AppEmoji } from './app-emoji'
 import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { cn, nullsFirst, nullsLast } from '~/lib/utils'
-import type { findEmojis } from '~/lib/api'
+import type { Emoji, PartialEmoji } from '~/lib/api'
 
 const emptyGroupId = 'undefined'
-
-type Emoji = Awaited<ReturnType<typeof findEmojis>>[number]
-type PartialEmoji = Pick<Emoji, 'serverUrl' | 'shortcode'>
 
 interface AppEmojiCardProps {
   groupBy: 'category' | 'authorHandle'

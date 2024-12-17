@@ -78,6 +78,9 @@ export async function findEmojis(serverUrl: string) {
   })
 }
 
+export type Emoji = Awaited<ReturnType<typeof findEmojis>>[number]
+export type PartialEmoji = Pick<Emoji, 'serverUrl' | 'shortcode'>
+
 export async function upsertEmojis(serverUrl: string) {
   const { error, data } = await fetchServerType(serverUrl)
   if (error || !data) throw json(error, { status: 400 })
